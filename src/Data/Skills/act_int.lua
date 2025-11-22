@@ -11157,12 +11157,13 @@ skills["KineticFusillade"] = {
 
 		if activeSkill.skillPart == 1 then
 			-- Set base dpsMultiplier for projectile count
-			activeSkill.skillData.dpsMultiplier = output.ProjectileCount
+			activeSkill.skillData.dpsMultiplier = output.ProjectileCount or 1
 
 			-- Calculate average damage scaling for sequential projectiles
 			-- Each projectile does more damage based on how many came before it
 			local moreDamagePerProj = skillData.damagePerProjectile or 0
-			if moreDamagePerProj ~= 0 and output.ProjectileCount > 1 then
+			local projCount = output.ProjectileCount
+			if moreDamagePerProj ~= 0 and projCount and type(projCount) == "number" and projCount > 1 then
 				-- Average multiplier: sum of (0, X, 2X, 3X, ..., (n-1)X) / n
 				-- This equals: X * (0 + 1 + 2 + ... + (n-1)) / n = X * n(n-1)/2 / n = X * (n-1)/2
 				local avgMoreMult = moreDamagePerProj * (output.ProjectileCount - 1) / 2

@@ -13397,6 +13397,7 @@ skills["SeismicTrap"] = {
 		local s_format = string.format
 
 		local baseInterval = skillData.repeatInterval
+		if not baseInterval then return end
 		local incFrequency = (1 + skillModList:Sum("INC", skillCfg, "TrapThrowingSpeed", "SeismicPulseFrequency") / 100)
 		local moreFrequency = skillModList:More(skillCfg, "TrapThrowingSpeed", "SeismicPulseFrequency")
 		local wavePulseRate = incFrequency * moreFrequency / baseInterval
@@ -13404,7 +13405,7 @@ skills["SeismicTrap"] = {
 		output.WavePulseRate = wavePulseRate
 		local incDuration = (1 + skillModList:Sum("INC", skillCfg, "Duration") / 100)
 		local moreDuration = skillModList:More(skillCfg, "Duration")
-		local duration = skillData.duration * incDuration * moreDuration
+		local duration = (skillData.duration or 0) * incDuration * moreDuration
 		local pulses = math.floor(duration * wavePulseRate)
 		output.PulsesPerTrap = pulses
 		local effectiveDuration = pulses / wavePulseRate

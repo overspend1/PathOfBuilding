@@ -11198,46 +11198,49 @@ skills["KineticFusillade"] = {
 			projectileCount = output.ProjectileCount
 		end
 
-		-- Calculate effective attack rate accounting for delayed projectile firing
-		-- Projectiles orbit for base_skill_effect_duration before firing
-		-- Recasting resets the timer, so attacking too fast wastes potential damage
-		local baseDuration = skillData.duration
-		local actualDuration = output.Duration or baseDuration
-		local ticksNeededForInitialDelay = math.ceil(actualDuration / data.misc.ServerTickTime)
-		local timePerProjectile = baseDelayBetweenProjectiles * output.DurationMod
-		local timeForAllProjectiles = timePerProjectile * projectileCount
-		local effectiveDelay = ticksNeededForInitialDelay * data.misc.ServerTickTime + math.ceil(timeForAllProjectiles / data.misc.ServerTickTime) * data.misc.ServerTickTime
-		local maxEffectiveAPS = 1 / effectiveDelay
-		local currentAPS = output.Speed
+		-- Only calculate effective attack rate if we have delay data
+		if baseDelayBetweenProjectiles then
+			-- Calculate effective attack rate accounting for delayed projectile firing
+			-- Projectiles orbit for base_skill_effect_duration before firing
+			-- Recasting resets the timer, so attacking too fast wastes potential damage
+			local baseDuration = skillData.duration
+			local actualDuration = output.Duration or baseDuration
+			local ticksNeededForInitialDelay = math.ceil(actualDuration / data.misc.ServerTickTime)
+			local timePerProjectile = baseDelayBetweenProjectiles * output.DurationMod
+			local timeForAllProjectiles = timePerProjectile * projectileCount
+			local effectiveDelay = ticksNeededForInitialDelay * data.misc.ServerTickTime + math.ceil(timeForAllProjectiles / data.misc.ServerTickTime) * data.misc.ServerTickTime
+			local maxEffectiveAPS = 1 / effectiveDelay
+			local currentAPS = output.Speed
 
-		output.KineticFusilladeMaxEffectiveAPS = maxEffectiveAPS
+			output.KineticFusilladeMaxEffectiveAPS = maxEffectiveAPS
 
-		if breakdown then
-			local breakdownAPS = {}
-			t_insert(breakdownAPS, s_format("^1(These calculations are speculative and best-effort)", actualDuration))
-			t_insert(breakdownAPS, s_format("^8Delay of^7 %.3fs ^8before projectiles start firing", actualDuration))
-			t_insert(breakdownAPS, s_format("^8Each projectile fires sequentially with a^7 %.3fs ^8delay between each projectile", timePerProjectile))
-			t_insert(breakdownAPS, s_format("^8Server tick time:^7 %.3fs", data.misc.ServerTickTime))
-			t_insert(breakdownAPS, s_format("^8Ticks needed:^7 %d ^8(rounded up)", ticksNeededForInitialDelay + math.ceil(timeForAllProjectiles / data.misc.ServerTickTime)))
-			t_insert(breakdownAPS, s_format("^8Effective delay:^7 %.3fs", effectiveDelay))
-			t_insert(breakdownAPS, s_format("^8Max effective attack rate:^7 1 / %.3f = %.2f", effectiveDelay, maxEffectiveAPS))
-			if currentAPS and currentAPS > maxEffectiveAPS then
-				t_insert(breakdownAPS, "")
-				t_insert(breakdownAPS, s_format("^1Current attack rate (%.2f) exceeds max effective rate!", currentAPS))
-				t_insert(breakdownAPS, s_format("^1DPS is reduced by %.1f%%", (1 - maxEffectiveAPS / currentAPS) * 100))
-			elseif currentAPS then
-				t_insert(breakdownAPS, "")
-				t_insert(breakdownAPS, s_format("^2Current attack rate (%.2f) is within effective limits", currentAPS))
+			if breakdown then
+				local breakdownAPS = {}
+				t_insert(breakdownAPS, s_format("^1(These calculations are speculative and best-effort)", actualDuration))
+				t_insert(breakdownAPS, s_format("^8Delay of^7 %.3fs ^8before projectiles start firing", actualDuration))
+				t_insert(breakdownAPS, s_format("^8Each projectile fires sequentially with a^7 %.3fs ^8delay between each projectile", timePerProjectile))
+				t_insert(breakdownAPS, s_format("^8Server tick time:^7 %.3fs", data.misc.ServerTickTime))
+				t_insert(breakdownAPS, s_format("^8Ticks needed:^7 %d ^8(rounded up)", ticksNeededForInitialDelay + math.ceil(timeForAllProjectiles / data.misc.ServerTickTime)))
+				t_insert(breakdownAPS, s_format("^8Effective delay:^7 %.3fs", effectiveDelay))
+				t_insert(breakdownAPS, s_format("^8Max effective attack rate:^7 1 / %.3f = %.2f", effectiveDelay, maxEffectiveAPS))
+				if currentAPS and currentAPS > maxEffectiveAPS then
+					t_insert(breakdownAPS, "")
+					t_insert(breakdownAPS, s_format("^1Current attack rate (%.2f) exceeds max effective rate!", currentAPS))
+					t_insert(breakdownAPS, s_format("^1DPS is reduced by %.1f%%", (1 - maxEffectiveAPS / currentAPS) * 100))
+				elseif currentAPS then
+					t_insert(breakdownAPS, "")
+					t_insert(breakdownAPS, s_format("^2Current attack rate (%.2f) is within effective limits", currentAPS))
+				end
+				breakdown.KineticFusilladeMaxEffectiveAPS = breakdownAPS
 			end
-			breakdown.KineticFusilladeMaxEffectiveAPS = breakdownAPS
-		end
 
-		-- Adjust dpsMultiplier if attacking too fast (only for "All Projectiles" mode)
-		if activeSkill.skillPart == 1 then
-			if currentAPS and currentAPS > maxEffectiveAPS then
-				local efficiencyRatio = maxEffectiveAPS / currentAPS
-				local originalMultiplier = skillData.dpsMultiplier or output.ProjectileCount
-				skillData.dpsMultiplier = originalMultiplier * efficiencyRatio
+			-- Adjust dpsMultiplier if attacking too fast (only for "All Projectiles" mode)
+			if activeSkill.skillPart == 1 then
+				if currentAPS and currentAPS > maxEffectiveAPS then
+					local efficiencyRatio = maxEffectiveAPS / currentAPS
+					local originalMultiplier = skillData.dpsMultiplier or output.ProjectileCount
+					skillData.dpsMultiplier = originalMultiplier * efficiencyRatio
+				end
 			end
 		end
 	end,
@@ -11581,6 +11584,7 @@ skills["LightningSpireTrap"] = {
 		end
 
 		local baseInterval = skillData.repeatInterval
+		if not baseInterval then return end
 		local incFrequency = (1 + skillModList:Sum("INC", skillCfg, "TrapThrowingSpeed") / 100)
 		local moreFrequency = skillModList:More(skillCfg, "TrapThrowingSpeed")
 		local wavePulseRate = incFrequency * moreFrequency / baseInterval
@@ -11588,7 +11592,7 @@ skills["LightningSpireTrap"] = {
 		output.WavePulseRate = wavePulseRate
 		local incDuration = (1 + skillModList:Sum("INC", skillCfg, "Duration") / 100)
 		local moreDuration = skillModList:More(skillCfg, "Duration")
-		local duration = skillData.duration * incDuration * moreDuration
+		local duration = (skillData.duration or 0) * incDuration * moreDuration
 		local pulses = math.floor(duration * wavePulseRate)
 		output.PulsesPerTrap = pulses
 		local effectiveDuration = pulses / wavePulseRate
@@ -11828,11 +11832,12 @@ skills["LightningSpireTrapAltX"] = {
 		end
 
 		local baseInterval = skillData.repeatInterval
+		if not baseInterval then return end
 		local wavePulseRate = 1 / baseInterval
 		skillData.hitTimeOverride = 1 / wavePulseRate
 		local incDuration = (1 + skillModList:Sum("INC", skillCfg, "Duration") / 100)
 		local moreDuration = skillModList:More(skillCfg, "Duration")
-		local duration = skillData.duration * incDuration * moreDuration
+		local duration = (skillData.duration or 0) * incDuration * moreDuration
 		local pulses = math.floor(duration * wavePulseRate)
 		output.PulsesPerTrap = pulses
 		local actionSpeedMod = 1 + skillModList:Sum("INC", skillCfg, "ActionSpeed") / 100
@@ -12068,11 +12073,12 @@ skills["LightningSpireTrapAltY"] = {
 		end
 
 		local baseInterval = skillData.repeatInterval
+		if not baseInterval then return end
 		local wavePulseRate = 1 / baseInterval
 		skillData.hitTimeOverride = 1 / wavePulseRate
 		local incDuration = (1 + skillModList:Sum("INC", skillCfg, "Duration") / 100)
 		local moreDuration = skillModList:More(skillCfg, "Duration")
-		local duration = skillData.duration * incDuration * moreDuration
+		local duration = (skillData.duration or 0) * incDuration * moreDuration
 		local pulses = math.floor(duration * wavePulseRate)
 		output.PulsesPerTrap = pulses
 		local effectiveDuration = pulses / wavePulseRate
